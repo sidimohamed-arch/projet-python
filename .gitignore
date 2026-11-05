@@ -1,0 +1,26 @@
+# Environnement virtuel
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Logs générés (10-15 Go, jamais dans Git)
+data/raw/
+*.log
+
+# Secrets
+.env
+
+# Système et éditeurs
+.DS_Store
+Thumbs.db
+.idea/
