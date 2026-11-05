@@ -16,6 +16,9 @@ from __future__ import annotations
 # logging : affiche les erreurs avec leur contexte, sans arrêter le programme.
 import logging
 
+# re : recherche des motifs (expressions régulières) dans du texte.
+import re
+
 # Types génériques utilisés dans les signatures des fonctions.
 from collections.abc import Callable, Iterable, Iterator
 
@@ -25,12 +28,34 @@ from dataclasses import dataclass
 # Any : indique qu'une valeur peut être de n'importe quel type.
 from typing import Any
 
+# unquote_plus : décode une URL, par exemple "%2f" en "/" et "+" en espace.
+from urllib.parse import unquote_plus
+
 # Journal propre à ce module : __name__ vaut ici "src.rules_engine".
 logger = logging.getLogger(__name__)
 
 # Alias de type : un événement est un dictionnaire (voir docs/format_logs.md).
 # Les clés sont des chaînes, les valeurs ont des types variés (str, datetime, tuple...).
 Event = dict[str, Any]
+
+# Motif compilé une seule fois : il sera testé sur chaque log, et les fichiers peuvent faire plusieurs Go.
+INJECTION_PATTERN = re.compile(
+    # Traversée de chemin : "../" ou "..\".
+    r"\.\.[/\\]"
+    # Injection SQL par condition ajoutée : "' OR ..." ou "' AND ...".
+    r"|'\s*(?:or|and)\s"
+    # Fin de requête neutralisée par un commentaire SQL : "'--".
+    r"|'\s*--"
+    # Seconde requête ajoutée après un point-virgule : "; DROP ...".
+    r"|;\s*(?:drop|delete|insert|update)\s"
+    # Fusion avec une autre requête : "UNION SELECT".
+    r"|union\s+select",
+    # Le SQL ne distingue pas les majuscules : "or" et "OR" doivent être reconnus de la même façon.
+    re.IGNORECASE,
+)
+
+# Longueur maximale du texte suspect recopié dans une alerte : une attaque peut envoyer un texte énorme.
+MAX_ALERT_TEXT = 100
 
 
 # frozen=True rend l'alerte immuable : une trace de sécurité ne doit pas changer après sa création.
@@ -82,6 +107,71 @@ def blacklisted_ip(event: Event, **config: Any) -> Alert | None:
     if ip in config.get("blacklist", frozenset()):
         # L'IP est connue comme dangereuse : la règle renvoie une alerte de gravité élevée.
         return Alert("blacklisted_ip", "HIGH", ip, f"Activité de l'IP blacklistée {ip}")
+
+    # None signifie que cette règle n'a rien détecté sur ce log.
+    return None
+
+
+# Signature : reçoit un log et la configuration (**config), renvoie une alerte ou None.
+def web_injection(event: Event, **config: Any) -> Alert | None:
+    """Lève une alerte si une requête contient une injection SQL ou une traversée de chemin.
+
+    La détection repose sur des motifs connus : elle repère les attaques courantes, mais une
+    attaque volontairement déguisée, par exemple encodée deux fois, peut lui échapper.
+
+    Args:
+        event: Le log à examiner.
+        **config: Configuration du moteur. Cette règle n'en utilise aucune.
+
+    Returns:
+        Une alerte si le chemin ou le payload texte est suspect, sinon None.
+    """
+    # match-case choisit le texte à analyser selon la forme du payload.
+    match event.get("payload"):
+        # Payload JSON valide contenant un chemin en texte : on analyse ce chemin.
+        case {"path": str(path)}:
+            # On garde le chemin pour l'analyser après le match.
+            target = path
+        # Payload resté en texte, par exemple un JSON cassé : on analyse tout le texte.
+        case str(text):
+            # On garde le texte pour l'analyser après le match.
+            target = text
+        # Tout autre cas (None, dictionnaire sans chemin...) ne contient rien à analyser.
+        case _:
+            # None signifie que cette règle n'a rien détecté sur ce log.
+            return None
+
+    # On décode l'URL d'abord : "..%2f" doit être reconnu comme "../".
+    decoded = unquote_plus(target)
+
+    # search() cherche le motif n'importe où dans le texte.
+    if INJECTION_PATTERN.search(decoded):
+        # !r échappe les retours à la ligne : l'attaquant ne peut pas fabriquer de fausses lignes de log.
+        message = f"Tentative d'injection : {target[:MAX_ALERT_TEXT]!r}"
+        # L'injection vient d'un attaquant actif : la règle renvoie une alerte de gravité élevée.
+        return Alert("web_injection", "HIGH", event.get("ip"), message)
+
+    # None signifie que cette règle n'a rien détecté sur ce log.
+    return None
+
+
+# Signature : reçoit un log et la configuration (**config), renvoie une alerte ou None.
+def critical_level(event: Event, **config: Any) -> Alert | None:
+    """Lève une alerte si le log a le niveau CRITICAL.
+
+    Args:
+        event: Le log à examiner, avec un niveau déjà normalisé par le pipeline.
+        **config: Configuration du moteur. Cette règle n'en utilise aucune.
+
+    Returns:
+        Une alerte si le niveau est CRITICAL, sinon None.
+    """
+    # .get() renvoie None pour les formats sans niveau, comme les tuples de connexion.
+    if event.get("level") == "CRITICAL":
+        # On reprend le nom de l'événement dans le message, pour aider à comprendre le problème.
+        message = f"Événement critique : {event.get('event')}"
+        # L'alerte reprend la gravité du log.
+        return Alert("critical_level", "CRITICAL", event.get("ip"), message)
 
     # None signifie que cette règle n'a rien détecté sur ce log.
     return None
