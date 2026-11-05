@@ -1,4 +1,4 @@
-"""Étudiant 3 : moteur de règles de sécurité.
+"""Fait par Sidi le 05/11/26
 
 Ce module contient :
 - Alert : le résultat renvoyé par une règle lorsqu'elle détecte un problème ;
