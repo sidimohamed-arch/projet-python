@@ -1,3 +1,5 @@
+"""Pipeline de transformation et de filtrage des logs réseau."""
+
 def filtrer_les_logs(flux_de_logs):
     """Élimine les entrées vides et les logs mal formés."""
     
