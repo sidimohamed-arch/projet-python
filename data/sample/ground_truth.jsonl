@@ -1,0 +1,20 @@
+{"kind": "web_injection", "ip": "89.172.199.3", "user": "-", "start": "2026-10-01T00:00:01.071Z", "end": "2026-10-01T00:00:02.048Z", "events": 4, "complete": true, "details": {"requests": 4}}
+{"kind": "brute_force", "ip": "158.131.76.166", "user": "deploy", "start": "2026-10-01T00:00:03.011Z", "end": "2026-10-01T00:00:06.458Z", "events": 8, "complete": true, "details": {"attempts": 7, "succeeded": true}}
+{"kind": "port_scan", "ip": "146.117.185.8", "user": "-", "start": "2026-10-01T00:00:11.914Z", "end": "2026-10-01T00:00:51.327Z", "events": 85, "complete": true, "details": {"ports": 85}}
+{"kind": "mistype_decoy", "ip": "192.168.98.212", "user": "test", "start": "2026-10-01T00:00:57.776Z", "end": "2026-10-01T00:00:58.406Z", "events": 3, "complete": true, "details": {"attempts": 2}}
+{"kind": "port_scan", "ip": "90.98.19.170", "user": "-", "start": "2026-10-01T00:01:01.098Z", "end": "2026-10-01T00:01:10.402Z", "events": 26, "complete": true, "details": {"ports": 26}}
+{"kind": "web_injection", "ip": "28.46.235.146", "user": "-", "start": "2026-10-01T00:01:15.115Z", "end": "2026-10-01T00:01:17.630Z", "events": 6, "complete": true, "details": {"requests": 6}}
+{"kind": "brute_force", "ip": "52.34.104.7", "user": "root", "start": "2026-10-01T00:01:22.287Z", "end": "2026-10-01T00:01:25.411Z", "events": 5, "complete": true, "details": {"attempts": 5, "succeeded": false}}
+{"kind": "web_injection", "ip": "15.137.222.241", "user": "-", "start": "2026-10-01T00:01:33.611Z", "end": "2026-10-01T00:01:37.122Z", "events": 8, "complete": true, "details": {"requests": 8}}
+{"kind": "mistype_decoy", "ip": "206.72.224.141", "user": "oracle", "start": "2026-10-01T00:01:56.142Z", "end": "2026-10-01T00:01:57.601Z", "events": 4, "complete": true, "details": {"attempts": 3}}
+{"kind": "brute_force", "ip": "45.14.168.106", "user": "root", "start": "2026-10-01T00:01:58.728Z", "end": "2026-10-01T00:02:00.033Z", "events": 5, "complete": true, "details": {"attempts": 5, "succeeded": false}}
+{"kind": "mistype_decoy", "ip": "192.168.102.46", "user": "admin", "start": "2026-10-01T00:02:02.866Z", "end": "2026-10-01T00:02:03.524Z", "events": 3, "complete": true, "details": {"attempts": 2}}
+{"kind": "brute_force", "ip": "16.233.114.234", "user": "postgres", "start": "2026-10-01T00:02:05.136Z", "end": "2026-10-01T00:02:07.137Z", "events": 9, "complete": true, "details": {"attempts": 8, "succeeded": true}}
+{"kind": "brute_force", "ip": "83.69.128.6", "user": "test", "start": "2026-10-01T00:02:14.424Z", "end": "2026-10-01T00:02:20.724Z", "events": 19, "complete": true, "details": {"attempts": 19, "succeeded": false}}
+{"kind": "brute_force", "ip": "73.221.167.116", "user": "deploy", "start": "2026-10-01T00:02:14.906Z", "end": "2026-10-01T00:02:22.822Z", "events": 25, "complete": true, "details": {"attempts": 25, "succeeded": false}}
+{"kind": "web_injection", "ip": "95.234.249.155", "user": "-", "start": "2026-10-01T00:02:26.470Z", "end": "2026-10-01T00:02:28.841Z", "events": 8, "complete": true, "details": {"requests": 8}}
+{"kind": "web_injection", "ip": "168.6.60.45", "user": "-", "start": "2026-10-01T00:03:31.243Z", "end": "2026-10-01T00:03:34.272Z", "events": 8, "complete": true, "details": {"requests": 8}}
+{"kind": "mistype_decoy", "ip": "192.168.67.139", "user": "oracle", "start": "2026-10-01T00:03:39.996Z", "end": "2026-10-01T00:03:40.874Z", "events": 4, "complete": true, "details": {"attempts": 3}}
+{"kind": "dos_burst", "ip": "35.107.72.193", "user": "-", "start": "2026-10-01T00:02:36.720Z", "end": "2026-10-01T00:03:48.718Z", "events": 172, "complete": true, "details": {"path": "/static/app.js", "requests": 172}}
+{"kind": "dos_burst", "ip": "138.209.246.218", "user": "-", "start": "2026-10-01T00:02:52.948Z", "end": "2026-10-01T00:03:51.838Z", "events": 129, "complete": true, "details": {"path": "/admin", "requests": 129}}
+{"kind": "brute_force", "ip": "222.153.64.27", "user": "deploy", "start": "2026-10-01T00:03:55.731Z", "end": "2026-10-01T00:03:58.960Z", "events": 17, "complete": true, "details": {"attempts": 16, "succeeded": true}}

@@ -16,6 +16,7 @@ __pycache__/
 # Logs générés (10-15 Go, jamais dans Git)
 data/raw/
 *.log
+!data/sample/*.log
 
 # Secrets
 .env
