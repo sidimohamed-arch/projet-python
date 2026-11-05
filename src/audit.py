@@ -3,7 +3,8 @@
 Ce module contient :
 - VariableAudit : la description d'une variable trouvée dans une portée ;
 - audit_scopes : la fonction qui inventorie les variables globales et locales ;
-- format_audit_report : la fonction qui met cet inventaire en forme pour l'affichage.
+- format_audit_report : la fonction qui met cet inventaire en forme pour l'affichage ;
+- export_audit_report : la fonction qui écrit ce rapport dans un fichier.
 
 Le rapport donne le type et la taille des variables, jamais leur valeur : un rapport d'audit
 peut être partagé, et il ne doit pas exposer un mot de passe ou une donnée sensible.
@@ -23,6 +24,9 @@ from collections.abc import Iterable, Mapping
 
 # dataclass : génère automatiquement le constructeur d'une classe de données.
 from dataclasses import dataclass
+
+# Path : représente un chemin de fichier, quel que soit le système d'exploitation.
+from pathlib import Path
 
 # Any : indique qu'une valeur peut être de n'importe quel type.
 from typing import Any
@@ -156,3 +160,30 @@ def format_audit_report(entries: Iterable[VariableAudit]) -> str:
     ]
     # On réunit les lignes en un seul texte, séparées par un retour à la ligne.
     return "\n".join(lines)
+
+
+# Signature : reçoit une suite d'entrées et un chemin (texte ou Path), renvoie le chemin du fichier écrit.
+def export_audit_report(entries: Iterable[VariableAudit], path: str | Path) -> Path:
+    """Écrit le rapport d'audit dans un fichier texte, en remplaçant le fichier s'il existe déjà.
+
+    Args:
+        entries: Les variables à présenter, par exemple le résultat de audit_scopes.
+        path: Le chemin du fichier à écrire. Les dossiers manquants sont créés.
+
+    Returns:
+        Le chemin du fichier écrit.
+
+    Raises:
+        OSError: Si le fichier ne peut pas être écrit, par exemple faute de droits.
+
+    Example:
+        >>> export_audit_report(audit_scopes(globals(), locals()), "reports/audit.txt")
+    """
+    # Path() accepte aussi un Path : la suite de la fonction n'a qu'un seul type à gérer.
+    report_path = Path(path)
+    # parents=True crée toute la chaîne de dossiers ; exist_ok=True accepte un dossier déjà présent.
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    # UTF-8 est imposé : sous Windows, l'encodage par défaut pourrait abîmer les accents du rapport.
+    report_path.write_text(format_audit_report(entries) + "\n", encoding="utf-8")
+    # On renvoie le chemin pour que l'appelant puisse l'afficher à l'utilisateur.
+    return report_path

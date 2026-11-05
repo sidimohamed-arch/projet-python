@@ -6,8 +6,11 @@ from __future__ import annotations
 # Import utilisé par le test sur le filtrage : un module ne doit pas apparaître dans le rapport.
 import math
 
-# On importe la classe et les deux fonctions à tester.
-from src.audit import VariableAudit, audit_scopes, format_audit_report
+# Path : décrit le type du dossier temporaire fourni par pytest.
+from pathlib import Path
+
+# On importe la classe et les trois fonctions à tester.
+from src.audit import VariableAudit, audit_scopes, export_audit_report, format_audit_report
 
 
 # Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
@@ -102,3 +105,45 @@ def test_empty_audit_gives_only_the_header() -> None:
     """Sans variable, le rapport reste valide et ne contient que l'en-tête."""
     # split() découpe le texte en mots : on doit retrouver uniquement les cinq titres.
     assert format_audit_report([]).split() == ["Portée", "Nom", "Type", "Octets", "Remarque"]
+
+
+# Signature : pytest fournit tmp_path, un dossier temporaire propre à ce test.
+def test_export_writes_the_report_in_utf8_and_creates_folders(tmp_path: Path) -> None:
+    """Le fichier contient le rapport, avec ses accents, même si son dossier n'existait pas."""
+    # Le sous-dossier "rapports" n'existe pas encore : la fonction doit le créer.
+    target = tmp_path / "rapports" / "audit.txt"
+    # On prépare une petite liste d'entrées, pour la réutiliser dans le résultat attendu.
+    entries = audit_scopes({"seuil": 5}, {})
+
+    # On exporte le rapport et on récupère le chemin du fichier écrit.
+    written = export_audit_report(entries, target)
+
+    # La fonction doit renvoyer le chemin demandé.
+    assert written == target
+    # On relit en UTF-8 : le contenu doit être le rapport, suivi d'un retour à la ligne final.
+    assert target.read_text(encoding="utf-8") == format_audit_report(entries) + "\n"
+
+
+# Signature : pytest fournit tmp_path, un dossier temporaire propre à ce test.
+def test_export_accepts_a_text_path_and_replaces_the_old_report(tmp_path: Path) -> None:
+    """Un chemin en texte est accepté, et un nouvel export remplace l'ancien rapport."""
+    # On place un ancien contenu dans le fichier.
+    target = tmp_path / "audit.txt"
+    # Ce texte doit disparaître après l'export.
+    target.write_text("ancien rapport", encoding="utf-8")
+
+    # str() fournit le chemin sous forme de texte ; aucune variable n'est à présenter.
+    export_audit_report([], str(target))
+
+    # L'ancien contenu ne doit plus être présent.
+    assert "ancien rapport" not in target.read_text(encoding="utf-8")
+
+
+# Signature : pytest fournit tmp_path, un dossier temporaire propre à ce test.
+def test_exported_file_never_contains_the_values(tmp_path: Path) -> None:
+    """Le fichier partagé ne révèle pas la valeur d'une variable sensible."""
+    # On exporte une variable sensible, dans le fichier audit.txt du dossier temporaire.
+    written = export_audit_report(audit_scopes({}, {"password": "motdepasse123"}), tmp_path / "audit.txt")
+
+    # La valeur ne doit pas se retrouver dans le fichier.
+    assert "motdepasse123" not in written.read_text(encoding="utf-8")
