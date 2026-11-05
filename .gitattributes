@@ -1,0 +1,5 @@
+* text=auto
+*.py text eol=lf
+
+# Échantillons de logs : conservés octet par octet (ils contiennent des octets invalides).
+data/sample/* -text
