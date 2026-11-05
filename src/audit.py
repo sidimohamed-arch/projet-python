@@ -10,31 +10,31 @@ Le rapport donne le type et la taille des variables, jamais leur valeur : un rap
 peut être partagé, et il ne doit pas exposer un mot de passe ou une donnée sensible.
 """
 
-# Permet d'écrire les annotations récentes (ex : "list[str]") sans les évaluer à l'exécution.
+# Annotations récentes, non évaluées à l'exécution.
 from __future__ import annotations
 
-# inspect : permet de reconnaître les modules, les classes et les fonctions.
+# inspect : reconnaît modules, classes et fonctions.
 import inspect
 
-# sys.getsizeof : donne la taille en mémoire d'un objet.
+# getsizeof : taille en mémoire d'un objet.
 import sys
 
-# Iterable : tout ce qu'on peut parcourir avec for. Mapping : tout ce qui se lit comme un dictionnaire.
+# Types utilisés dans les signatures.
 from collections.abc import Iterable, Mapping
 
-# dataclass : génère automatiquement le constructeur d'une classe de données.
+# dataclass : génère le constructeur.
 from dataclasses import dataclass
 
-# Path : représente un chemin de fichier, quel que soit le système d'exploitation.
+# Path : chemin de fichier.
 from pathlib import Path
 
-# Any : indique qu'une valeur peut être de n'importe quel type.
+# Any : n'importe quel type.
 from typing import Any
 
 
-# frozen=True rend l'entrée immuable : un constat d'audit ne doit pas changer après sa création.
+# frozen=True : entrée immuable.
 @dataclass(frozen=True)
-# La classe regroupe les informations relevées sur une seule variable.
+# Informations sur une variable.
 class VariableAudit:
     """Description d'une variable trouvée dans une portée.
 
@@ -46,19 +46,19 @@ class VariableAudit:
         shadows_global: True si cette variable locale masque une globale de même nom.
     """
 
-    # Portée de la variable : "global" ou "local".
+    # "global" ou "local".
     scope: str
-    # Nom de la variable dans le code audité.
+    # Nom de la variable.
     name: str
-    # Nom du type de la valeur : on ne garde jamais la valeur elle-même.
+    # Nom du type, jamais la valeur.
     type_name: str
-    # Taille de l'objet en octets.
+    # Taille en octets.
     size_bytes: int
-    # Valeur par défaut False : une globale ne peut pas masquer une globale.
+    # True si la locale masque une globale.
     shadows_global: bool = False
 
 
-# Signature : reçoit un nom (str) et une valeur de tout type (Any), renvoie un booléen.
+# Signature : str x Any -> bool
 def _is_variable(name: str, value: Any) -> bool:
     """Indique si un nom de portée désigne une variable utile à auditer.
 
@@ -70,15 +70,15 @@ def _is_variable(name: str, value: Any) -> bool:
         False pour les noms spéciaux de Python (__name__...), les modules, les classes et
         les fonctions, qui remplissent globals() sans être des données du programme.
     """
-    # Les noms entourés de "__" (__name__, __file__...) sont créés par Python, pas par le programme.
+    # Noms créés par Python (__name__...).
     if name.startswith("__") and name.endswith("__"):
-        # Ce nom spécial n'est pas une donnée du programme : on l'écarte.
+        # Pas une donnée du programme.
         return False
-    # On garde la valeur seulement si ce n'est ni un module, ni une classe, ni une fonction.
+    # Ni module, ni classe, ni fonction.
     return not (inspect.ismodule(value) or inspect.isclass(value) or inspect.isroutine(value))
 
 
-# Signature : reçoit deux portées qui se lisent comme des dictionnaires, renvoie une liste d'entrées.
+# Signature : Mapping[str, Any] x Mapping[str, Any] -> list[VariableAudit]
 def audit_scopes(global_vars: Mapping[str, Any], local_vars: Mapping[str, Any]) -> list[VariableAudit]:
     """Inventorie les variables de deux portées.
 
@@ -95,29 +95,29 @@ def audit_scopes(global_vars: Mapping[str, Any], local_vars: Mapping[str, Any]) 
     Example:
         >>> entrees = audit_scopes(globals(), locals())
     """
-    # Cette liste en compréhension crée une entrée par variable globale.
+    # Une entrée par variable globale.
     entries = [
-        # Chaque entrée garde la portée, le nom, le nom du type et la taille, mais pas la valeur.
+        # Portée, nom, type et taille, sans la valeur.
         VariableAudit("global", name, type(value).__name__, sys.getsizeof(value))
-        # sorted() trie les paires (nom, valeur) par nom : le rapport reste stable d'une exécution à l'autre.
+        # Tri par nom, pour un rapport stable.
         for name, value in sorted(global_vars.items())
-        # Le filtre retire ce qui n'est pas une donnée du programme.
+        # Garde seulement les données.
         if _is_variable(name, value)
     ]
-    # += ajoute les variables locales à la suite des variables globales.
+    # Ajoute les variables locales.
     entries += [
-        # On teste global_vars au complet : une locale peut aussi masquer une fonction globale.
+        # Signale une locale qui masque une globale.
         VariableAudit("local", name, type(value).__name__, sys.getsizeof(value), name in global_vars)
-        # Même tri par nom que pour les globales.
+        # Même tri par nom.
         for name, value in sorted(local_vars.items())
-        # Même filtre que pour les globales.
+        # Même filtre.
         if _is_variable(name, value)
     ]
-    # On renvoie l'inventaire complet : les globales d'abord, puis les locales.
+    # Globales d'abord, puis locales.
     return entries
 
 
-# Signature : reçoit n'importe quelle suite d'entrées (liste, générateur...), renvoie le texte du rapport.
+# Signature : Iterable[VariableAudit] -> str
 def format_audit_report(entries: Iterable[VariableAudit]) -> str:
     """Met un inventaire de variables en forme, sous la forme d'un tableau de texte.
 
@@ -127,11 +127,11 @@ def format_audit_report(entries: Iterable[VariableAudit]) -> str:
     Returns:
         Le rapport, prêt à être affiché ou écrit dans un fichier.
     """
-    # La première ligne du tableau contient les titres des colonnes.
+    # Ligne des titres.
     rows = [("Portée", "Nom", "Type", "Octets", "Remarque")]
-    # On transforme chaque entrée en cellules de texte, pour pouvoir mesurer leur largeur.
+    # Chaque entrée devient des cellules de texte.
     rows += [
-        # Ce tuple représente une ligne du tableau, avec une cellule par colonne.
+        # Une ligne du tableau.
         (
             # Colonne "Portée".
             entry.scope,
@@ -139,30 +139,30 @@ def format_audit_report(entries: Iterable[VariableAudit]) -> str:
             entry.name,
             # Colonne "Type".
             entry.type_name,
-            # Colonne "Octets" : str() convertit le nombre, car les cellules doivent être du texte.
+            # Colonne "Octets", convertie en texte.
             str(entry.size_bytes),
-            # Colonne "Remarque" : elle reste vide si la variable ne masque aucune globale.
+            # Colonne "Remarque", parfois vide.
             "masque une globale" if entry.shadows_global else "",
         )
-        # On crée une ligne pour chaque entrée reçue.
+        # Une ligne par entrée.
         for entry in entries
     ]
 
-    # zip(*rows) lit le tableau par colonnes : chaque colonne prend la largeur de sa plus longue cellule.
+    # Largeur de la plus longue cellule par colonne.
     widths = [max(len(cell) for cell in column) for column in zip(*rows, strict=True)]
 
-    # Cette liste contient le texte final de chaque ligne du tableau.
+    # Texte final de chaque ligne.
     lines = [
-        # ljust complète chaque cellule avec des espaces ; rstrip retire ceux laissés en fin de ligne.
+        # Aligne les cellules, sans espace en fin de ligne.
         "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)).rstrip()
-        # On répète ce traitement pour chaque ligne, titres compris.
+        # Pour chaque ligne, titres compris.
         for row in rows
     ]
-    # On réunit les lignes en un seul texte, séparées par un retour à la ligne.
+    # Réunit les lignes en un seul texte.
     return "\n".join(lines)
 
 
-# Signature : reçoit une suite d'entrées et un chemin (texte ou Path), renvoie le chemin du fichier écrit.
+# Signature : Iterable[VariableAudit] x str | Path -> Path
 def export_audit_report(entries: Iterable[VariableAudit], path: str | Path) -> Path:
     """Écrit le rapport d'audit dans un fichier texte, en remplaçant le fichier s'il existe déjà.
 
@@ -179,11 +179,11 @@ def export_audit_report(entries: Iterable[VariableAudit], path: str | Path) -> P
     Example:
         >>> export_audit_report(audit_scopes(globals(), locals()), "reports/audit.txt")
     """
-    # Path() accepte aussi un Path : la suite de la fonction n'a qu'un seul type à gérer.
+    # Accepte un texte ou un Path.
     report_path = Path(path)
-    # parents=True crée toute la chaîne de dossiers ; exist_ok=True accepte un dossier déjà présent.
+    # Crée les dossiers manquants.
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    # UTF-8 est imposé : sous Windows, l'encodage par défaut pourrait abîmer les accents du rapport.
+    # UTF-8 : préserve les accents sous Windows.
     report_path.write_text(format_audit_report(entries) + "\n", encoding="utf-8")
-    # On renvoie le chemin pour que l'appelant puisse l'afficher à l'utilisateur.
+    # Renvoie le chemin écrit.
     return report_path

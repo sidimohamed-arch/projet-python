@@ -1,43 +1,43 @@
 """Tests du rapport d'audit des variables de portée."""
 
-# Permet d'écrire les annotations récentes sans les évaluer à l'exécution.
+# Annotations récentes, non évaluées à l'exécution.
 from __future__ import annotations
 
-# Import utilisé par le test sur le filtrage : un module ne doit pas apparaître dans le rapport.
+# math : module utilisé par le test de filtrage.
 import math
 
-# Path : décrit le type du dossier temporaire fourni par pytest.
+# Path : type du dossier temporaire.
 from pathlib import Path
 
-# On importe la classe et les trois fonctions à tester.
+# Éléments à tester.
 from src.audit import VariableAudit, audit_scopes, export_audit_report, format_audit_report
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_variables_are_listed_by_scope_with_their_type() -> None:
     """Les globales passent avant les locales, et chaque portée est triée par nom."""
-    # Deux globales volontairement dans le désordre, et une locale.
+    # Deux globales dans le désordre, une locale.
     entries = audit_scopes({"seuil": 5, "chemin": "logs"}, {"total": 1.5})
 
-    # On compare la portée, le nom et le type de chaque entrée au résultat attendu.
+    # Compare portée, nom et type.
     assert [(entry.scope, entry.name, entry.type_name) for entry in entries] == [
-        # "chemin" passe avant "seuil", car les noms sont triés.
+        # "chemin" avant "seuil" : tri par nom.
         ("global", "chemin", "str"),
-        # La seconde globale, avec son type.
+        # La seconde globale.
         ("global", "seuil", "int"),
-        # La locale arrive après toutes les globales.
+        # La locale après les globales.
         ("local", "total", "float"),
     ]
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_special_names_modules_classes_and_functions_are_ignored() -> None:
     """Seules les données du programme sont auditées."""
-    # On audite des globales de chaque sorte.
+    # Des globales de chaque sorte.
     entries = audit_scopes(
-        # Un nom spécial, un module, une classe, une fonction, puis une seule vraie variable.
+        # Nom spécial, module, classe, fonction, variable.
         {"__name__": "x", "math": math, "Classe": VariableAudit, "fn": len, "seuil": 5},
-        # Ce dictionnaire vide indique qu'il n'y a aucune variable locale.
+        # Aucune variable locale.
         {},
     )
 
@@ -45,105 +45,105 @@ def test_special_names_modules_classes_and_functions_are_ignored() -> None:
     assert [entry.name for entry in entries] == ["seuil"]
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_local_variable_hiding_a_global_is_flagged() -> None:
     """Une locale qui porte le nom d'une globale est signalée, même si cette globale est une fonction."""
-    # "seuil" masque une variable, "max" masque une fonction, et "autre" ne masque rien.
+    # "seuil" et "max" masquent ; "autre" non.
     entries = audit_scopes({"seuil": 5, "max": max}, {"seuil": 9, "max": 3, "autre": 0})
 
-    # On garde uniquement les noms des variables signalées.
+    # Noms des variables signalées.
     flagged = [entry.name for entry in entries if entry.shadows_global]
 
-    # sorted() rend la comparaison indépendante de l'ordre de la liste.
+    # sorted() : ordre indifférent.
     assert sorted(flagged) == ["max", "seuil"]
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_works_with_real_globals_and_locals() -> None:
     """La fonction accepte directement le résultat de globals() et de locals()."""
-    # Cette variable locale doit être retrouvée par l'audit.
+    # Variable que l'audit doit retrouver.
     secret_local = 42
 
-    # On passe les vraies portées de ce test, comme le fera le code de production.
+    # Passe les vraies portées du test.
     entries = audit_scopes(globals(), locals())
 
-    # La variable doit apparaître dans l'inventaire avec la portée "local".
+    # Trouvée avec la portée "local".
     assert ("local", "secret_local") in [(entry.scope, entry.name) for entry in entries]
-    # Lire la variable ici évite qu'un outil la signale comme inutilisée.
+    # Utilise la variable dans le test.
     assert secret_local == 42
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_report_never_contains_the_values() -> None:
     """Le rapport présente la variable sans révéler sa valeur."""
     # On simule une variable sensible.
     report = format_audit_report(audit_scopes({}, {"password": "motdepasse123"}))
 
-    # Le nom de la variable reste visible dans le rapport.
+    # Nom visible.
     assert "password" in report
-    # Sa valeur ne doit jamais y apparaître.
+    # Valeur jamais affichée.
     assert "motdepasse123" not in report
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_report_columns_are_aligned_and_shadowing_is_visible() -> None:
     """Toutes les colonnes commencent au même endroit et la remarque apparaît."""
-    # On construit directement une entrée, pour contrôler exactement ce que reçoit le rapport.
+    # Entrée construite à la main.
     report = format_audit_report([VariableAudit("local", "seuil", "int", 28, shadows_global=True)])
 
-    # Le rapport doit contenir deux lignes : l'en-tête, puis la variable.
+    # En-tête, puis variable.
     header, row = report.splitlines()
 
-    # Le nom de la variable doit commencer sous le titre de sa colonne.
+    # Nom aligné sous son titre.
     assert header.index("Nom") == row.index("seuil")
-    # La remarque doit être écrite en clair dans la ligne.
+    # Remarque écrite en clair.
     assert "masque une globale" in row
 
 
-# Signature : pytest appelle ce test sans argument, et il ne renvoie rien (None).
+# Signature : () -> None
 def test_empty_audit_gives_only_the_header() -> None:
     """Sans variable, le rapport reste valide et ne contient que l'en-tête."""
-    # split() découpe le texte en mots : on doit retrouver uniquement les cinq titres.
+    # Seuls les cinq titres restent.
     assert format_audit_report([]).split() == ["Portée", "Nom", "Type", "Octets", "Remarque"]
 
 
-# Signature : pytest fournit tmp_path, un dossier temporaire propre à ce test.
+# Signature : Path -> None
 def test_export_writes_the_report_in_utf8_and_creates_folders(tmp_path: Path) -> None:
     """Le fichier contient le rapport, avec ses accents, même si son dossier n'existait pas."""
-    # Le sous-dossier "rapports" n'existe pas encore : la fonction doit le créer.
+    # Dossier encore inexistant.
     target = tmp_path / "rapports" / "audit.txt"
-    # On prépare une petite liste d'entrées, pour la réutiliser dans le résultat attendu.
+    # Entrées à exporter.
     entries = audit_scopes({"seuil": 5}, {})
 
-    # On exporte le rapport et on récupère le chemin du fichier écrit.
+    # Exporte et récupère le chemin.
     written = export_audit_report(entries, target)
 
-    # La fonction doit renvoyer le chemin demandé.
+    # Renvoie le chemin demandé.
     assert written == target
-    # On relit en UTF-8 : le contenu doit être le rapport, suivi d'un retour à la ligne final.
+    # Rapport suivi d'un retour à la ligne.
     assert target.read_text(encoding="utf-8") == format_audit_report(entries) + "\n"
 
 
-# Signature : pytest fournit tmp_path, un dossier temporaire propre à ce test.
+# Signature : Path -> None
 def test_export_accepts_a_text_path_and_replaces_the_old_report(tmp_path: Path) -> None:
     """Un chemin en texte est accepté, et un nouvel export remplace l'ancien rapport."""
-    # On place un ancien contenu dans le fichier.
+    # Ancien contenu à remplacer.
     target = tmp_path / "audit.txt"
-    # Ce texte doit disparaître après l'export.
+    # Ce texte doit disparaître.
     target.write_text("ancien rapport", encoding="utf-8")
 
-    # str() fournit le chemin sous forme de texte ; aucune variable n'est à présenter.
+    # Chemin en texte, sans variable.
     export_audit_report([], str(target))
 
-    # L'ancien contenu ne doit plus être présent.
+    # L'ancien contenu a disparu.
     assert "ancien rapport" not in target.read_text(encoding="utf-8")
 
 
-# Signature : pytest fournit tmp_path, un dossier temporaire propre à ce test.
+# Signature : Path -> None
 def test_exported_file_never_contains_the_values(tmp_path: Path) -> None:
     """Le fichier partagé ne révèle pas la valeur d'une variable sensible."""
-    # On exporte une variable sensible, dans le fichier audit.txt du dossier temporaire.
+    # Exporte une variable sensible.
     written = export_audit_report(audit_scopes({}, {"password": "motdepasse123"}), tmp_path / "audit.txt")
 
-    # La valeur ne doit pas se retrouver dans le fichier.
+    # Valeur absente du fichier.
     assert "motdepasse123" not in written.read_text(encoding="utf-8")

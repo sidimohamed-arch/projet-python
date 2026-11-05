@@ -10,57 +10,56 @@ Les fonctions sont des objets de première classe : on peut les passer en argume
 modulaire : ajouter une règle revient à écrire une fonction, sans modifier le moteur.
 """
 
-# Permet d'écrire les annotations récentes (ex : "Alert | None") sans les évaluer à l'exécution.
+# Annotations récentes, non évaluées à l'exécution.
 from __future__ import annotations
 
-# logging : affiche les erreurs avec leur contexte, sans arrêter le programme.
+# logging : journalise les erreurs.
 import logging
 
-# re : recherche des motifs (expressions régulières) dans du texte.
+# re : expressions régulières.
 import re
 
-# Types génériques utilisés dans les signatures des fonctions.
+# Types utilisés dans les signatures.
 from collections.abc import Callable, Iterable, Iterator
 
-# dataclass : génère automatiquement le constructeur d'une classe de données.
+# dataclass : génère le constructeur.
 from dataclasses import dataclass
 
-# Any : indique qu'une valeur peut être de n'importe quel type.
+# Any : n'importe quel type.
 from typing import Any
 
-# unquote_plus : décode une URL, par exemple "%2f" en "/" et "+" en espace.
+# unquote_plus : décode une URL.
 from urllib.parse import unquote_plus
 
-# Journal propre à ce module : __name__ vaut ici "src.rules_engine".
+# Journal propre à ce module.
 logger = logging.getLogger(__name__)
 
-# Alias de type : un événement est un dictionnaire (voir docs/format_logs.md).
-# Les clés sont des chaînes, les valeurs ont des types variés (str, datetime, tuple...).
+# Un événement est un dictionnaire.
 Event = dict[str, Any]
 
-# Motif compilé une seule fois : il sera testé sur chaque log, et les fichiers peuvent faire plusieurs Go.
+# Motif compilé une seule fois, pour la rapidité.
 INJECTION_PATTERN = re.compile(
     # Traversée de chemin : "../" ou "..\".
     r"\.\.[/\\]"
-    # Injection SQL par condition ajoutée : "' OR ..." ou "' AND ...".
+    # Injection SQL : "' OR ..." ou "' AND ...".
     r"|'\s*(?:or|and)\s"
-    # Fin de requête neutralisée par un commentaire SQL : "'--".
+    # Commentaire SQL : "'--".
     r"|'\s*--"
-    # Seconde requête ajoutée après un point-virgule : "; DROP ...".
+    # Seconde requête : "; DROP ...".
     r"|;\s*(?:drop|delete|insert|update)\s"
     # Fusion avec une autre requête : "UNION SELECT".
     r"|union\s+select",
-    # Le SQL ne distingue pas les majuscules : "or" et "OR" doivent être reconnus de la même façon.
+    # Insensible à la casse.
     re.IGNORECASE,
 )
 
-# Longueur maximale du texte suspect recopié dans une alerte : une attaque peut envoyer un texte énorme.
+# Taille maximale du texte cité dans une alerte.
 MAX_ALERT_TEXT = 100
 
 
-# frozen=True rend l'alerte immuable : une trace de sécurité ne doit pas changer après sa création.
+# frozen=True : alerte immuable.
 @dataclass(frozen=True)
-# La classe regroupe les informations d'une alerte.
+# Informations d'une alerte.
 class Alert:
     """Alerte levée par une règle de sécurité.
 
@@ -71,23 +70,21 @@ class Alert:
         message: Description lisible du problème.
     """
 
-    # Nom de la règle qui a détecté le problème.
+    # Nom de la règle.
     rule: str
     # Niveau de gravité de l'alerte.
     severity: str
-    # Adresse IP concernée : None si le log n'en contient pas.
+    # IP concernée, ou None.
     ip: str | None
-    # Texte lisible qui décrit le problème.
+    # Description du problème.
     message: str
 
 
-# Alias de type : une règle est une fonction qui renvoie une alerte ou None.
-# Les "..." indiquent que ses paramètres ne sont pas imposés à cet endroit.
-# Défini après Alert, car cette ligne est évaluée à l'exécution et a besoin de la classe.
+# Une règle renvoie une alerte ou None.
 Rule = Callable[..., Alert | None]
 
 
-# Signature : reçoit un log et la configuration (**config), renvoie une alerte ou None.
+# Signature : Event x **Any -> Alert | None
 def blacklisted_ip(event: Event, **config: Any) -> Alert | None:
     """Lève une alerte si l'adresse IP du log est dans la blacklist.
 
@@ -98,21 +95,19 @@ def blacklisted_ip(event: Event, **config: Any) -> Alert | None:
     Returns:
         Une alerte si l'IP est blacklistée, sinon None.
     """
-    # .get() renvoie None si la clé manque, alors que event["ip"] lèverait une KeyError.
-    # C'est utile pour les chaînes brutes, qui n'ont pas d'adresse IP.
+    # .get() : None si la clé manque.
     ip = event.get("ip")
 
-    # Sans blacklist fournie, on utilise un frozenset vide : aucune IP ne peut alors correspondre.
-    # La recherche dans un frozenset est quasi instantanée, quelle que soit sa taille.
+    # Blacklist vide par défaut.
     if ip in config.get("blacklist", frozenset()):
-        # L'IP est connue comme dangereuse : la règle renvoie une alerte de gravité élevée.
+        # IP dangereuse : alerte élevée.
         return Alert("blacklisted_ip", "HIGH", ip, f"Activité de l'IP blacklistée {ip}")
 
-    # None signifie que cette règle n'a rien détecté sur ce log.
+    # Rien à signaler.
     return None
 
 
-# Signature : reçoit un log et la configuration (**config), renvoie une alerte ou None.
+# Signature : Event x **Any -> Alert | None
 def web_injection(event: Event, **config: Any) -> Alert | None:
     """Lève une alerte si une requête contient une injection SQL ou une traversée de chemin.
 
@@ -126,36 +121,36 @@ def web_injection(event: Event, **config: Any) -> Alert | None:
     Returns:
         Une alerte si le chemin ou le payload texte est suspect, sinon None.
     """
-    # match-case choisit le texte à analyser selon la forme du payload.
+    # Choisit le texte selon la forme du payload.
     match event.get("payload"):
-        # Payload JSON valide contenant un chemin en texte : on analyse ce chemin.
+        # JSON valide avec un chemin.
         case {"path": str(path)}:
-            # On garde le chemin pour l'analyser après le match.
+            # On garde le chemin.
             target = path
-        # Payload resté en texte, par exemple un JSON cassé : on analyse tout le texte.
+        # Payload resté en texte.
         case str(text):
-            # On garde le texte pour l'analyser après le match.
+            # On garde le texte.
             target = text
-        # Tout autre cas (None, dictionnaire sans chemin...) ne contient rien à analyser.
+        # Rien à analyser dans les autres cas.
         case _:
-            # None signifie que cette règle n'a rien détecté sur ce log.
+            # Rien à signaler.
             return None
 
-    # On décode l'URL d'abord : "..%2f" doit être reconnu comme "../".
+    # Décode l'URL : "..%2f" devient "../".
     decoded = unquote_plus(target)
 
-    # search() cherche le motif n'importe où dans le texte.
+    # Cherche le motif dans le texte.
     if INJECTION_PATTERN.search(decoded):
-        # !r échappe les retours à la ligne : l'attaquant ne peut pas fabriquer de fausses lignes de log.
+        # !r échappe les retours à la ligne.
         message = f"Tentative d'injection : {target[:MAX_ALERT_TEXT]!r}"
-        # L'injection vient d'un attaquant actif : la règle renvoie une alerte de gravité élevée.
+        # Injection : alerte élevée.
         return Alert("web_injection", "HIGH", event.get("ip"), message)
 
-    # None signifie que cette règle n'a rien détecté sur ce log.
+    # Rien à signaler.
     return None
 
 
-# Signature : reçoit un log et la configuration (**config), renvoie une alerte ou None.
+# Signature : Event x **Any -> Alert | None
 def critical_level(event: Event, **config: Any) -> Alert | None:
     """Lève une alerte si le log a le niveau CRITICAL.
 
@@ -166,19 +161,18 @@ def critical_level(event: Event, **config: Any) -> Alert | None:
     Returns:
         Une alerte si le niveau est CRITICAL, sinon None.
     """
-    # .get() renvoie None pour les formats sans niveau, comme les tuples de connexion.
+    # .get() : None si le log n'a pas de niveau.
     if event.get("level") == "CRITICAL":
-        # On reprend le nom de l'événement dans le message, pour aider à comprendre le problème.
+        # Cite l'événement dans le message.
         message = f"Événement critique : {event.get('event')}"
-        # L'alerte reprend la gravité du log.
+        # Alerte de gravité critique.
         return Alert("critical_level", "CRITICAL", event.get("ip"), message)
 
-    # None signifie que cette règle n'a rien détecté sur ce log.
+    # Rien à signaler.
     return None
 
 
-# Signature : *args reçoit les règles dans un tuple, **kwargs reçoit les options nommées dans un
-# dictionnaire, et la fonction renvoie un itérateur d'alertes.
+# Signature : *Rule x **Any -> Iterator[Alert]
 def apply_security_rules(*args: Rule, **kwargs: Any) -> Iterator[Alert]:
     """Applique des règles de sécurité à un flux de logs.
 
@@ -201,31 +195,31 @@ def apply_security_rules(*args: Rule, **kwargs: Any) -> Iterator[Alert]:
     Example:
         >>> alertes = apply_security_rules(blacklisted_ip, events=flux, blacklist=ips)
     """
-    # Sans règle, l'analyse ne produirait rien : c'est forcément une erreur d'appel.
+    # Sans règle, l'appel est invalide.
     if not args:
-        # On arrête l'appel tout de suite avec un message clair.
+        # Arrête l'appel avec un message clair.
         raise ValueError("Il faut au moins une règle de sécurité")
 
-    # On vérifie chaque règle maintenant, pour éviter une erreur en plein milieu d'un gros fichier.
+    # Vérifie chaque règle dès l'appel.
     for rule in args:
-        # callable() indique si un objet peut être appelé avec des parenthèses.
+        # callable() : l'objet peut-il être appelé ?
         if not callable(rule):
-            # !r affiche l'objet tel quel dans le message, pour repérer facilement l'élément fautif.
+            # !r affiche l'élément fautif.
             raise TypeError(f"Une règle doit être une fonction : {rule!r}")
 
-    # Le flux de logs est indispensable : le reste de la configuration dépend des règles.
+    # Le flux de logs est indispensable.
     if "events" not in kwargs:
-        # TypeError est l'erreur habituelle de Python quand un argument obligatoire manque.
+        # Argument obligatoire manquant.
         raise TypeError("Le paramètre events est obligatoire")
 
-    # pop() lit "events" et le retire : kwargs ne contient ensuite que la configuration des règles.
+    # Retire events : reste la configuration.
     events = kwargs.pop("events")
 
-    # _evaluate est un générateur : cet appel ne lit encore aucun log.
+    # Générateur : aucun log lu pour l'instant.
     return _evaluate(args, events, kwargs)
 
 
-# Signature : reçoit le tuple de règles, le flux de logs et la configuration, renvoie un itérateur d'alertes.
+# Signature : tuple[Rule, ...] x Iterable[Event] x dict[str, Any] -> Iterator[Alert]
 def _evaluate(rules: tuple[Rule, ...], events: Iterable[Event], config: dict[str, Any]) -> Iterator[Alert]:
     """Passe chaque log dans chaque règle, sans stocker le flux en mémoire.
 
@@ -239,27 +233,22 @@ def _evaluate(rules: tuple[Rule, ...], events: Iterable[Event], config: dict[str
     Yields:
         Chaque alerte, dès qu'une règle la lève.
     """
-    # Un seul log est en mémoire à chaque tour : la RAM ne dépend pas de la taille des fichiers.
+    # Un seul log en mémoire à la fois.
     for event in events:
-        # Chaque log est soumis à toutes les règles.
+        # Chaque log passe dans toutes les règles.
         for rule in rules:
-            # try surveille l'appel de la règle, car elle peut lever n'importe quelle erreur.
+            # Une règle peut lever n'importe quelle erreur.
             try:
-                # "rule" contient une fonction : on l'appelle comme une fonction normale.
-                # **config redistribue le dictionnaire : {"blacklist": ips} devient blacklist=ips.
+                # Appelle la règle avec la configuration.
                 alert = rule(event, **config)
             except Exception:
-                # Exception volontairement large : une règle peut venir de n'importe quel module,
-                # et sa panne ne doit pas interrompre l'analyse de plusieurs Go.
-                # logger.exception enregistre aussi le détail de l'erreur pour le débogage.
-                # getattr : un callable (ex : functools.partial) n'a pas toujours de __name__, et le
-                # traitement de l'erreur ne doit surtout pas lever lui-même une nouvelle erreur.
+                # La panne d'une règle n'arrête pas l'analyse.
+                # getattr : un callable n'a pas toujours de __name__.
                 logger.exception("Erreur dans la règle %s", getattr(rule, "__name__", repr(rule)))
-                # On abandonne cette règle pour ce log et on passe à la suivante.
+                # Passe à la règle suivante.
                 continue
 
-            # On garde uniquement les vrais résultats : None signifie "rien à signaler".
+            # None : rien à signaler.
             if alert is not None:
-                # yield rend l'alerte tout de suite et met la fonction en pause jusqu'à la demande
-                # suivante : les alertes ne s'accumulent pas dans une liste en mémoire.
+                # Rend l'alerte sans la stocker.
                 yield alert
