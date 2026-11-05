@@ -18,6 +18,9 @@ data/raw/
 *.log
 !data/sample/*.log
 
+# Rapports produits par le programme
+reports/
+
 # Secrets
 .env
 
