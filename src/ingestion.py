@@ -16,8 +16,7 @@ from typing import Any
 
 def parser_ligne_log(line: str) -> dict[str, Any] | None:
     """
-    Parse une ligne de log brute (standard ou JSON) en un Dictionnaire structuré.
-    Compatible avec le pipeline de Fatima et le main de Sidi Mohamed.
+    transforme une ligne brute en dictionnaire
     """
     text = line.strip()
     if not text:
@@ -89,7 +88,7 @@ def parser_ligne_log(line: str) -> dict[str, Any] | None:
 def generer_logs_fichier(path: Path | str) -> Iterator[dict[str, Any]]:
     """
     Générateur basé sur 'yield' : lit un fichier ligne par ligne sans charger
-    tout le contenu en mémoire vive.
+    tout le contenu en mémoire vive. lit progressivement.
     """
     fichier = Path(path)
     if not fichier.exists():
@@ -109,6 +108,7 @@ def ingestion_multi_sources(*sources: Path | str | Iterable[Path | str]) -> Iter
     Sous-générateur multi-sources utilisant impérativement 'yield from'.
     Accepte soit plusieurs chemins : ingestion_multi_sources(f1, f2)
     soit une liste de chemins    : ingestion_multi_sources([f1, f2])
+    lit plusieurs fichiers avec yield from
     """
     # Si l'utilisateur passe une liste directe comme premier argument
     fichiers: list[Path | str] = []
