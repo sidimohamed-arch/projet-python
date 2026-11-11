@@ -17,13 +17,13 @@ from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 
-# --- MODULE 1 : INGESTION STREAMING (HAFSA) ---
+# --- MODULE 1 : INGESTION STREAMING ---
 from src.ingestion import ingestion_multi_sources
 
 # --- MODULE 2 : PIPELINE DE TRANSFORMATION (FATIMA) ---
 from src.pipeline import filtrer_les_logs, normaliser_flux
 
-# --- MODULE 3 : ANALYSE & DÉTECTION (FATIMA & HAFSA) ---
+# --- MODULE 3 : ANALYSE & DÉTECTION ---
 from src.analyzer import agreger_statistiques, charger_blacklist
 from src.detector import detecter_force_brute
 
@@ -103,7 +103,7 @@ def analyze(arguments: list[str]) -> int:
             print(f"  • {rule} : {count}")
 
         # -------------------------------------------------------------
-        # ÉTAPE B : DÉTECTION DE FORCE BRUTE (Module 3 - Hafsa)
+        # ÉTAPE B : DÉTECTION DE FORCE BRUTE (Module 3)
         # -------------------------------------------------------------
         print("\n--- 2. DÉTECTION D'ATTAQUES PAR FORCE BRUTE (while / for / else) ---")
         attaques = detecter_force_brute(obtenir_flux_propre(), seuil_echecs=3)
