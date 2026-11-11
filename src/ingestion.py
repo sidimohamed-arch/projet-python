@@ -1,7 +1,7 @@
 """
 Module 1 : Ingestion de Données & Générateurs Mémoire
 Fichier : src/ingestion.py
-Auteur : Hafsa (Étudiante 1)
+Auteur : Hafsa
 Description : Ingestion en streaming (yield et yield from) de fichiers de logs
               sans saturer la mémoire RAM.
 """
