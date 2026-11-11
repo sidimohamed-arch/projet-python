@@ -51,7 +51,7 @@ def _summarize_alerts(alerts: Iterable[Alert], shown: int) -> Counter[str]:
     for position, alert in enumerate(alerts):
         counts[alert.rule] += 1
         if position < shown:
-            print(f"  [{alert.severity}] {alert.rule} | {alert.ip} | {alert.message}")
+            print(f"[{alert.severity}] {alert.rule} | {alert.ip} | {alert.message}")
     return counts
 
 
