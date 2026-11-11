@@ -108,7 +108,7 @@ def analyze(arguments: list[str]) -> int:
         print("\n--- 2. DÉTECTION D'ATTAQUES PAR FORCE BRUTE (while / for / else) ---")
         attaques = detecter_force_brute(obtenir_flux_propre(), seuil_echecs=3)
         if attaques:
-            print(f"🚨 {len(attaques)} attaque(s) par force brute détectée(s) :")
+            print(f" {len(attaques)} attaque(s) par force brute détectée(s) :")
             for att in attaques[:options.show]:
                 print(f"  [FORCE_BRUTE] {att['ip']} (Cible: {att['user']}) : {att['echecs_consecutifs']} échecs consécutifs")
         else:
@@ -135,7 +135,7 @@ def analyze(arguments: list[str]) -> int:
         print(f"  Rapport généré avec succès : {rapport_path}")
 
         print("\n" + "=" * 65)
-        print("                 PIPELINE EXÉCUTÉ AVEC SUCCÈS (20/20)")
+        print("                 PIPELINE EXÉCUTÉ AVEC SUCCÈS ")
         print("=" * 65)
 
     except OSError as error:
