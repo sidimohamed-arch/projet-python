@@ -54,6 +54,11 @@ def detecter_force_brute(
         if not ip:
             continue
 
+        # On ignore les logs sans utilisateur identifié (user absent, vide ou "-")
+        user = log.get("user")
+        if not isinstance(user, str) or user.strip() in {"", "-"}:
+            continue
+
         logs_par_ip[ip].append(log)
 
     alertes_detectees: list[dict[str, Any]] = []

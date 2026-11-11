@@ -38,13 +38,13 @@ def analyser_les_ensembles_ip(ips_actives, blacklist_ips):
     # 1. Union (|) : Totalité de toutes les adresses IP sans doublon
     toutes_les_ips = ips_actives | blacklist_ips
 
-    # 2. Intersection (&) : IP actives ET blacklistées (PIRATES DÉTECTÉS !)
+    # 2. Intersection (&) : IP actives présentes dans la blacklist
     ips_hostiles_detectees = ips_actives & blacklist_ips
 
-    # 3. Différence (-) : IP actives non blacklistées (TRAFIC SAIN)
+    # 3. Différence (-) : IP actives absentes de la blacklist
     ips_saines = ips_actives - blacklist_ips
 
-    # 4. Différence symétrique (^) : Soit actives saines, soit blacklistées dormantes
+    # 4. Différence symétrique (^) : IP présentes dans un seul des deux ensembles
     ips_divergentes = ips_actives ^ blacklist_ips
 
     return {
